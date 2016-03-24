@@ -19,25 +19,86 @@ void ofApp::scan_dir_imgs(ofDirectory dir){
     }
 }
 
+// Returns a pair of grid side lengths that describe the grid
+// closest to a square that contains n_tiles items
+std::tuple<int, int> ofApp::best_grid_size(int n_tiles) {
+    
+    int grid_x = 0;
+    int grid_y = 0;
+    
+    for(int n = 1; n < ceil(sqrt(n_tiles) + 1); n++) {
+        if(n_tiles % n == 0) {
+            grid_y = n;
+            grid_x = n_tiles/n;
+        }
+    }
+    
+    return std::tuple<int, int>(grid_x, grid_y);
+}
+
+void save_tsne_to_json(vector<ofFile> image_files,
+                       int nx, int ny,
+                       vector<ofVec2f> solved_grid,
+                       ofFile out_file) {
+    
+    ofFile new_out_file(out_file, ofFile::WriteOnly);
+    
+    if(!new_out_file.exists()) {
+        new_out_file.create();
+    }
+    
+    Json::Value images(Json::arrayValue);
+    
+    for(int i = 0; i < solved_grid.size(); i++) {
+        Json::Value image;
+        image["filename"] = image_files[i].getFileName();
+        
+        Json::Value tsne_pos;
+        tsne_pos["x"] = solved_grid[i].x;
+        tsne_pos["y"] = solved_grid[i].y;
+        
+        image["tsne_pos"] = tsne_pos;
+        
+        Json::Value grid_pos;
+        grid_pos["x"] = round(solved_grid[i].x * nx);
+        grid_pos["y"] = round(solved_grid[i].y * ny);
+        
+        image["grid_pos"] = grid_pos;
+        
+        images.append(image);
+    }
+    
+    Json::StyledWriter writer;
+    new_out_file << writer.write(images);
+    new_out_file.close();
+}
+
 //--------------------------------------------------------------
 void ofApp::setup(){
     
     // SETUP
     // imageDir, imageSavePath = location of images, path to save the final grid image
-    // nx, ny = size of the grid (make sure there are at least nx*ny images in imageDir!)
+    // n_images = the number of images to use
+    // nx, ny = size of the grid, computed to make the grid closest to a
+    // square
     // w, h = downsample (or scale up) for source images prior to encoding!
     // displayW, displayH = resolution of the individual thumbnails for your output image - be careful about going over your maximum texture size on graphics card - 5000x5000 may work, but 10000x10000 may not
+    // above these sizes, you need to manually save the image as binary data
     // perplexity, theta (for t-SNE, see 'example' for explanation of these)
-    string imageDir = "/Users/gene/Media/ImageSets/animals";
-    string imageSavePath = "tsne_grid_animals.png";
-    nx = 48;
-    ny = 36;
+    string imageDir = "/Users/a/Pictures/inspires";
+    string imageSavePath = "tsne_grid_insp.png";
+    string results_save_json = "tsne_grid_insp.json";
+    int n_images = 300;
+    
+    int nx, ny;
+    std::tie(nx, ny) = best_grid_size(n_images);
+
     w = 256; //do not go lower than 256 - it will work, but results won't be as good
     h = 256;
     displayW = 100;
     displayH = 100;
     perplexity = 75;
-    theta = 0.001;
+    theta = 0.2;
 
     
     /////////////////////////////////////////////////////////////////////
@@ -53,14 +114,14 @@ void ofApp::setup(){
     }
     
     // load all the images
-    for(int i=0; i<nx*ny; i++) {
+    for(int i = 0; i < nx * ny; i++) {
         if (i % 20 == 0)    ofLog() << " - loading image "<<i<<" / "<<nx*ny<<" ("<<dir.size()<<" in dir)";
         images.push_back(ofImage());
         images.back().load(imageFiles[i]);
     }
 
     // resize images to w x h
-    for (int i=0; i<images.size(); i++) {
+    for (int i = 0; i < images.size(); i++) {
         if (images[i].getWidth() > images[i].getHeight()) {
             images[i].crop((images[i].getWidth()-images[i].getHeight()) * 0.5, 0, images[i].getHeight(), images[i].getHeight());
         }
@@ -91,7 +152,11 @@ void ofApp::setup(){
     vector<ofVec2f> gridPoints = makeGrid(nx, ny);
     solvedGrid = solver.match(tsnePoints, gridPoints, false);
     
-    // save
+    // save tsne_results
+    ofFile out_file(results_save_json, ofFile::WriteOnly);
+    save_tsne_to_json(imageFiles, nx, ny, solvedGrid, out_file);
+    
+    // save images
     ofFbo fbo;
     fbo.allocate(nx * displayW, ny * displayH);
     fbo.begin();
@@ -123,7 +188,7 @@ void ofApp::draw(){
     
     ofPushMatrix();
     ofTranslate(-ofGetMouseX() * (scale - 0.5), -ofGetMouseY() * (scale - 0.5));
-    for (int i=0; i<solvedGrid.size(); i++) {
+    for (int i=0; i < solvedGrid.size(); i++) {
         float x = scale * (nx - 1) * w * solvedGrid[i].x;
         float y = scale * (ny - 1) * h * solvedGrid[i].y;
         images[i].draw(x, y, scale * images[i].getWidth(), scale * images[i].getHeight());

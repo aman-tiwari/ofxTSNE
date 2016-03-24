@@ -5,6 +5,7 @@
 #include "ofxTSNE.h"
 #include "ofxAssignment.h"
 #include "ofxGui.h"
+#include "ofxJSON.h"
 
 class ofApp : public ofBaseApp{
     
@@ -15,7 +16,7 @@ public:
     
     void keyPressed(int key);
     void keyReleased(int key);
-    void mouseMoved(int x, int y );
+    void mouseMoved(int x, int y);
     void mouseDragged(int x, int y, int button);
     void mousePressed(int x, int y, int button);
     void mouseReleased(int x, int y, int button);
@@ -26,6 +27,8 @@ public:
     void gotMessage(ofMessage msg);
     
     void scan_dir_imgs(ofDirectory dir);
+    
+    tuple<int, int> best_grid_size(int n_tiles);
     
     ofxCcv ccv;
     ofxTSNE tsne;
