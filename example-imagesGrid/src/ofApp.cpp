@@ -38,6 +38,7 @@ std::tuple<int, int> ofApp::best_grid_size(int n_tiles) {
 
 void save_tsne_to_json(vector<ofFile> image_files,
                        int nx, int ny,
+                       vector<ofVec2f> tsne_points,
                        vector<ofVec2f> solved_grid,
                        ofFile out_file) {
     
@@ -54,8 +55,8 @@ void save_tsne_to_json(vector<ofFile> image_files,
         image["filename"] = image_files[i].getFileName();
         
         Json::Value tsne_pos;
-        tsne_pos["x"] = solved_grid[i].x;
-        tsne_pos["y"] = solved_grid[i].y;
+        tsne_pos["x"] = tsne_points[i].x;
+        tsne_pos["y"] = tsne_points[i].y;
         
         image["tsne_pos"] = tsne_pos;
         
@@ -154,7 +155,7 @@ void ofApp::setup(){
     
     // save tsne_results
     ofFile out_file(results_save_json, ofFile::WriteOnly);
-    save_tsne_to_json(imageFiles, nx, ny, solvedGrid, out_file);
+    save_tsne_to_json(imageFiles, nx, ny, tsnePoints, solvedGrid, out_file);
     
     // save images
     ofFbo fbo;
